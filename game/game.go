@@ -3,19 +3,29 @@ package game
 import rl "github.com/gen2brain/raylib-go/raylib"
 
 const (
-	BrickRows    = 5
-	HeightOffset = 100
+	BrickRows                     = 5
+	HeightOffset                  = 100
+	LightZ                float32 = 100
+	CanvasZ               float32 = 2
+	shadowBorderThickness float32 = 2
 )
 
 type Game struct {
-	Width  int32
-	Height int32
-	ball   Ball
-	paddle Paddle
-	bricks []*Brick
+	Width            int32
+	Height           int32
+	ball             Ball
+	paddle           Paddle
+	bricks           []*Brick
+	light            rl.Vector3
+	shadowColor      rl.Color
+	shadowColorLight rl.Color
 }
 
 func (g *Game) Init() {
+	g.light = rl.Vector3{X: float32(g.Width) / 2, Y: 0, Z: LightZ}
+	g.shadowColor = rl.Color{R: 0, G: 0, B: 0, A: 20}
+	g.shadowColorLight = rl.Color{R: 0, G: 0, B: 0, A: 10}
+
 	g.ball = Ball{
 		Position: rl.Vector2{X: float32(g.Width) / 2, Y: float32(g.Height) * 0.8},
 		Velocity: rl.Vector2{X: 1, Y: -1},
@@ -26,7 +36,7 @@ func (g *Game) Init() {
 	g.ball.Init(g)
 	g.paddle.Init(g)
 
-	cols := int(g.Width / BrickWidth)
+	cols := int(g.Width / int32(BrickWidth))
 
 	g.bricks = make([]*Brick, BrickRows*cols)
 	for y := 0; y < BrickRows; y++ {
@@ -35,10 +45,18 @@ func (g *Game) Init() {
 				Position: rl.Vector2{X: float32(x) * BrickWidth, Y: float32(y)*BrickHeight + HeightOffset},
 				Lives:    BrickRows - y,
 			}
-			brick.Init()
+			brick.Init(g)
 			g.bricks[y*cols+x] = &brick
 		}
 	}
+}
+
+func (g *Game) ProjectCanvas(pos rl.Vector2) rl.Vector2 {
+	Lx, Ly, Lz := g.light.X, g.light.Y, g.light.Z
+	Px, Py, Pz := pos.X, pos.Y, CanvasZ
+	deltaZ := Lz - Pz
+	t := Lz / deltaZ
+	return rl.NewVector2(Lx+t*(Px-Lx), Ly+t*(Py-Ly))
 }
 
 func (g *Game) Update(time float32) {
@@ -64,11 +82,18 @@ func (g *Game) Update(time float32) {
 
 }
 
+func (g *Game) DrawShadow() {
+	g.ball.DrawShadow()
+	g.paddle.DrawShadow()
+	for _, brick := range g.bricks {
+		brick.DrawShadow()
+	}
+}
+
 func (g *Game) Draw() {
 	g.ball.Draw()
 	g.paddle.Draw()
 	for _, brick := range g.bricks {
 		brick.Draw()
 	}
-
 }

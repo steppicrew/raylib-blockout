@@ -16,20 +16,21 @@ func main() {
 
 	rl.SetTargetFPS(60)
 
-	board := game.Game{
+	game := game.Game{
 		Width:  screenWidth,
 		Height: screenHeight,
 	}
 
-	board.Init()
+	game.Init()
 
 	for !rl.WindowShouldClose() {
-		board.Update(rl.GetFrameTime())
+		game.Update(rl.GetFrameTime())
 
 		rl.BeginDrawing()
 		rl.ClearBackground(rl.RayWhite)
 
-		board.Draw()
+		game.DrawShadow()
+		game.Draw()
 
 		rl.EndDrawing()
 	}
