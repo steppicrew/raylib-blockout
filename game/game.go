@@ -52,10 +52,14 @@ func (g *Game) Init() {
 }
 
 func (g *Game) ProjectCanvas(pos rl.Vector2) rl.Vector2 {
+	return g.ProjectZ(pos, 0)
+}
+
+func (g *Game) ProjectZ(pos rl.Vector2, z float32) rl.Vector2 {
 	Lx, Ly, Lz := g.light.X, g.light.Y, g.light.Z
 	Px, Py, Pz := pos.X, pos.Y, CanvasZ
 	deltaZ := Lz - Pz
-	t := Lz / deltaZ
+	t := (Lz - z) / deltaZ
 	return rl.NewVector2(Lx+t*(Px-Lx), Ly+t*(Py-Ly))
 }
 
