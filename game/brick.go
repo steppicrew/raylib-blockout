@@ -41,7 +41,7 @@ func (b *Brick) Init(g *Game) {
 	objDepth := bbox.Max.Z - bbox.Min.Z
 
 	b.scale = rl.NewVector3((BrickWidth-padding)/objWidth, BrickHeight/objHeight, BrickDepth/objDepth)
-	half := rl.Vector3{X: objWidth / 2, Y: objHeight / 2, Z: objDepth / 2}
+	half := rl.Vector3{X: (BrickWidth - padding) / 2, Y: BrickHeight / 2, Z: BrickDepth / 2}
 	b.bbox = rl.BoundingBox{
 		Min: rl.Vector3Subtract(b.Position, half),
 		Max: rl.Vector3Add(b.Position, half),
@@ -54,30 +54,29 @@ func (b *Brick) Update(time float32) {
 }
 
 func (b *Brick) checkCollision(ball Ball) rl.Vector3 {
-	topLeft := rl.Vector2{X: b.bbox.Max.X, Y: b.bbox.Max.Z}
-	topRight := rl.Vector2{X: b.bbox.Min.X, Y: b.bbox.Max.Z}
-	bottomLeft := rl.Vector2{X: b.bbox.Max.X, Y: b.bbox.Min.Z}
-	bottomRight := rl.Vector2{X: b.bbox.Min.X, Y: b.bbox.Min.Z}
+	if b.Lives <= 0 {
+		return ball.Velocity
+	}
+
+	// Find the point on the box closest to the sphere center
+	closest := rl.Vector3Clamp(ball.Position, b.bbox.Min, b.bbox.Max)
+
+	// Calculate distance from sphere center to closest point
+	distance := rl.Vector3Length(rl.Vector3Subtract(ball.Position, closest))
+
+	// Check for collision
+	collides := distance <= BallRadius
+
 	resultVelocity := rl.Vector3{X: ball.Velocity.X, Y: ball.Velocity.Y, Z: ball.Velocity.Z}
-	ballPosition := rl.Vector2{X: ball.Position.X, Y: ball.Position.Z}
-	bounced := false
-	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, topLeft, topRight) {
-		resultVelocity.Z = AbsFloat(resultVelocity.Z)
-		bounced = true
-	}
-	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, bottomLeft, bottomRight) {
-		resultVelocity.Z = -AbsFloat(resultVelocity.Z)
-		bounced = true
-	}
-	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, topRight, bottomRight) {
-		resultVelocity.X = AbsFloat(resultVelocity.X)
-		bounced = true
-	}
-	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, bottomLeft, topLeft) {
-		resultVelocity.X = -AbsFloat(resultVelocity.X)
-		bounced = true
-	}
-	if bounced && b.Lives > 0 {
+
+	if collides {
+		if closest.X == b.bbox.Min.X || closest.X == b.bbox.Max.X {
+			resultVelocity.X = -resultVelocity.X
+		}
+		if closest.Z == b.bbox.Min.Z || closest.Z == b.bbox.Max.Z {
+			resultVelocity.Z = -resultVelocity.Z
+		}
+
 		b.Lives--
 	}
 	return resultVelocity
@@ -109,21 +108,6 @@ func (b *Brick) Draw() {
 		return
 	}
 	baseColor := BrickColors[b.Lives-1]
-	// highlightColor := rl.ColorBrightness(baseColor, 0.3)
-	// Draw the 3D brick
-	// Parameters: position, width, height, depth, color
-
-	/*
-		rl.DrawCubeV(b.Position, b.size, baseColor)
-		rl.DrawCubeWiresV(b.Position, b.size, highlightColor)
-	*/
-
-	/*
-		start := rl.Vector3{X: b.Position.X + b.size.Y/2, Y: b.Position.Y + b.size.Y/2, Z: b.Position.Z + b.size.Z/2}
-		end := rl.Vector3Add(start, rl.Vector3{X: b.size.X - 2*+b.size.Y/2, Y: 0, Z: 0})
-		rl.DrawCapsule(start, end, b.size.Y/2, 8, 10, baseColor)
-		rl.DrawCapsuleWires(start, end, b.size.Y/2, 8, 10, highlightColor)
-	*/
 
 	shader := b.game.shader
 	modelLoc := rl.GetShaderLocation(shader, "model")
@@ -150,4 +134,5 @@ func (b *Brick) Draw() {
 
 	rl.EndShaderMode()
 
+	// rl.DrawCubeWires(b.Position, b.bbox.Max.X-b.bbox.Min.X, b.bbox.Max.Y-b.bbox.Min.Y, b.bbox.Max.Z-b.bbox.Min.Z, rl.Gray)
 }
