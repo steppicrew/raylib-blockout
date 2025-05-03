@@ -22,10 +22,30 @@ type Game struct {
 	camera           rl.Camera3D
 	shadowColor      rl.Color
 	shadowColorLight rl.Color
-	shader           rl.Shader
+
+	ballModel  rl.Model
+	brickModel rl.Model
+	shader     rl.Shader
+}
+
+func (g *Game) InitiModels() {
+	shader := rl.LoadShader("shader/vertex.glsl", "shader/fragment.glsl")
+	g.shader = shader
+
+	g.ballModel = rl.LoadModelFromMesh(rl.GenMeshSphere(BallRadius, 32, 32))
+	for i := range int(g.ballModel.MaterialCount) {
+		g.ballModel.GetMaterials()[i].Shader = shader
+	}
+
+	g.brickModel = rl.LoadModel("objects/rounded_cube.glb")
+	for i := range int(g.brickModel.MaterialCount) {
+		g.brickModel.GetMaterials()[i].Shader = shader
+	}
 }
 
 func (g *Game) Init() {
+	g.InitiModels()
+
 	g.lightPosition = rl.Vector3{X: float32(g.Width) / 2, Y: LightHeight, Z: float32(g.Height)}
 	// g.lightPosition = rl.Vector3{X: 0, Y: LightHeight, Z: float32(g.Height) / 2}
 	g.camera = rl.Camera3D{}
@@ -39,7 +59,6 @@ func (g *Game) Init() {
 		g.lightPosition = rl.Vector3{X: 0, Y: 0, Z: 0}
 		g.camera.Position = rl.Vector3{X: 0, Y: 0, Z: 0}
 	*/
-	g.shader = rl.LoadShader("shader/vertex.glsl", "shader/fragment.glsl")
 
 	g.ball = Ball{
 		Position: rl.Vector3{X: float32(g.Width) / 2, Y: GamePlaneHeight, Z: float32(g.Height) * 0.3},
@@ -47,7 +66,7 @@ func (g *Game) Init() {
 		Velocity: rl.Vector3{X: 1, Y: 0, Z: 1},
 		// Velocity: rl.Vector3{X: 0, Y: 0, Z: 1},
 	}
-	g.paddle = Paddle{Position: rl.Vector2{X: float32(g.Width) / 2, Y: float32(g.Height) - PaddleHeight - 30}}
+	g.paddle = Paddle{Position: rl.Vector3{X: float32(g.Width) / 2, Y: GamePlaneHeight, Z: PaddleHeight / 2}}
 	g.bricks = []*Brick{}
 
 	g.ball.Init(g)
@@ -149,6 +168,16 @@ func (g *Game) Draw() {
 	// g.camera.Target = g.ball.Position
 
 	rl.BeginMode3D(g.camera) // Enter 3D mode
+
+	shader := g.shader
+	viewPosLoc := rl.GetShaderLocation(shader, "viewPos")
+	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
+	lightColorLoc := rl.GetShaderLocation(shader, "lightColor")
+
+	// Update uniforms
+	rl.SetShaderValue(shader, viewPosLoc, []float32{g.camera.Position.X, g.camera.Position.Y, g.camera.Position.Z}, rl.ShaderUniformVec3)
+	rl.SetShaderValue(shader, lightPosLoc, []float32{g.lightPosition.X, g.lightPosition.Y, g.lightPosition.Z}, rl.ShaderUniformVec3)
+	rl.SetShaderValue(shader, lightColorLoc, []float32{1, 1, 1}, rl.ShaderUniformVec3)
 
 	// rl.DrawSphere(g.lightPosition, 1, rl.Red)
 

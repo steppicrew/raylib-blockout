@@ -16,7 +16,6 @@ type Ball struct {
 	Position   rl.Vector3
 	Velocity   rl.Vector3
 	game       *Game
-	model      rl.Model
 	min        rl.Vector3
 	max        rl.Vector3
 	color      rl.Color
@@ -25,10 +24,6 @@ type Ball struct {
 
 func (b *Ball) Init(g *Game) {
 	b.game = g
-	b.model = rl.LoadModelFromMesh(rl.GenMeshSphere(BallRadius, 32, 32))
-	for i := range int(b.model.MaterialCount) {
-		b.model.GetMaterials()[i].Shader = g.shader
-	}
 
 	b.color = rl.Red
 	b.colorLight = rl.ColorBrightness(b.color, 0.5)
@@ -60,7 +55,7 @@ func (b *Ball) DrawShadow() {
 }
 
 func (b *Ball) DrawNormals() {
-	mesh := b.model.GetMeshes()[0]
+	mesh := b.game.ballModel.GetMeshes()[0]
 
 	// Access mesh data
 	vertices := (*[1 << 30]float32)(unsafe.Pointer(mesh.Vertices))[:mesh.VertexCount*3]
@@ -93,18 +88,11 @@ func (b *Ball) DrawNormals() {
 func (b *Ball) Draw() {
 	shader := b.game.shader
 	modelLoc := rl.GetShaderLocation(shader, "model")
-	viewPosLoc := rl.GetShaderLocation(shader, "viewPos")
-	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
-	lightColorLoc := rl.GetShaderLocation(shader, "lightColor")
 	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
-	rl.SetShaderValue(shader, viewPosLoc, []float32{b.game.camera.Position.X, b.game.camera.Position.Y, b.game.camera.Position.Z}, rl.ShaderUniformVec3)
-	rl.SetShaderValue(shader, lightPosLoc, []float32{b.game.lightPosition.X, b.game.lightPosition.Y, b.game.lightPosition.Z}, rl.ShaderUniformVec3)
-
-	rl.SetShaderValue(shader, lightColorLoc, []float32{1, 1, 1}, rl.ShaderUniformVec3)
 	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(b.color.R) / 255, float32(b.color.G) / 255, float32(b.color.B) / 255}, rl.ShaderUniformVec3)
 
 	transform := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
@@ -112,7 +100,7 @@ func (b *Ball) Draw() {
 
 	rl.SetShaderValueMatrix(shader, modelLoc, transform)
 
-	rl.DrawModelEx(b.model, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+	rl.DrawModelEx(b.game.ballModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
 
 	rl.EndShaderMode()
 }

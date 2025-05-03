@@ -20,7 +20,6 @@ type Brick struct {
 	Position rl.Vector3
 	Lives    int
 	game     *Game
-	model    rl.Model
 	size     rl.Vector3
 	scale    rl.Vector3
 	bbox     rl.BoundingBox
@@ -29,12 +28,7 @@ type Brick struct {
 func (b *Brick) Init(g *Game) {
 	b.game = g
 
-	b.model = rl.LoadModel("objects/rounded_cube.glb")
-	for i := range int(b.model.MaterialCount) {
-		b.model.GetMaterials()[i].Shader = g.shader
-	}
-
-	bbox := rl.GetModelBoundingBox(b.model)
+	bbox := rl.GetModelBoundingBox(g.brickModel)
 
 	objWidth := bbox.Max.X - bbox.Min.X
 	objHeight := bbox.Max.Y - bbox.Min.Y
@@ -58,14 +52,7 @@ func (b *Brick) checkCollision(ball Ball) rl.Vector3 {
 		return ball.Velocity
 	}
 
-	// Find the point on the box closest to the sphere center
-	closest := rl.Vector3Clamp(ball.Position, b.bbox.Min, b.bbox.Max)
-
-	// Calculate distance from sphere center to closest point
-	distance := rl.Vector3Length(rl.Vector3Subtract(ball.Position, closest))
-
-	// Check for collision
-	collides := distance <= BallRadius
+	collides, closest := CheckCollisionSphereBox(ball.Position, BallRadius, b.bbox)
 
 	resultVelocity := rl.Vector3{X: ball.Velocity.X, Y: ball.Velocity.Y, Z: ball.Velocity.Z}
 
@@ -111,18 +98,11 @@ func (b *Brick) Draw() {
 
 	shader := b.game.shader
 	modelLoc := rl.GetShaderLocation(shader, "model")
-	viewPosLoc := rl.GetShaderLocation(shader, "viewPos")
-	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
-	lightColorLoc := rl.GetShaderLocation(shader, "lightColor")
 	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
-	rl.SetShaderValue(shader, viewPosLoc, []float32{b.game.camera.Position.X, b.game.camera.Position.Y, b.game.camera.Position.Z}, rl.ShaderUniformVec3)
-	rl.SetShaderValue(shader, lightPosLoc, []float32{b.game.lightPosition.X, b.game.lightPosition.Y, b.game.lightPosition.Z}, rl.ShaderUniformVec3)
-
-	rl.SetShaderValue(shader, lightColorLoc, []float32{1, 1, 1}, rl.ShaderUniformVec3)
 	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(baseColor.R) / 255, float32(baseColor.G) / 255, float32(baseColor.B) / 255}, rl.ShaderUniformVec3)
 
 	transform := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
@@ -130,7 +110,7 @@ func (b *Brick) Draw() {
 
 	rl.SetShaderValueMatrix(shader, modelLoc, transform)
 
-	rl.DrawModelEx(b.model, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, b.scale, baseColor)
+	rl.DrawModelEx(b.game.brickModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, b.scale, baseColor)
 
 	rl.EndShaderMode()
 
