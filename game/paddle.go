@@ -22,27 +22,31 @@ func (p *Paddle) Init(g *Game) {
 }
 
 func (p *Paddle) Update(time float32) {
-	if rl.IsKeyDown(rl.KeyRight) {
-		p.Position.X = MinFloat(p.Position.X+PaddleSpeed*time, float32(p.game.Width)-PaddleWidth)
-	}
-	if rl.IsKeyDown(rl.KeyLeft) {
-		p.Position.X = MaxFloat(p.Position.X-PaddleSpeed*time, 0)
+	if !rl.IsKeyDown(rl.KeyLeftShift) && !rl.IsKeyDown(rl.KeyRightShift) && !rl.IsKeyDown(rl.KeyLeftControl) && !rl.IsKeyDown(rl.KeyRightControl) && !rl.IsKeyDown(rl.KeyLeftAlt) && !rl.IsKeyDown(rl.KeyRightAlt) {
+		if rl.IsKeyDown(rl.KeyRight) {
+			p.Position.X = MinFloat(p.Position.X+PaddleSpeed*time, float32(p.game.Width)-PaddleWidth)
+		}
+		if rl.IsKeyDown(rl.KeyLeft) {
+			p.Position.X = MaxFloat(p.Position.X-PaddleSpeed*time, 0)
+		}
 	}
 }
 
-func (p *Paddle) checkCollision(b Ball) rl.Vector2 {
+func (p *Paddle) checkCollision(b Ball) rl.Vector3 {
 	topLeft := rl.Vector2{X: p.Position.X, Y: p.Position.Y}
 	topRight := rl.Vector2{X: p.Position.X + PaddleWidth, Y: p.Position.Y}
 	bottomLeft := rl.Vector2{X: p.Position.X, Y: p.Position.Y + PaddleHeight}
 	bottomRight := rl.Vector2{X: p.Position.X + PaddleWidth, Y: p.Position.Y + PaddleHeight}
-	resultVelocity := rl.Vector2{X: b.Velocity.X, Y: b.Velocity.Y}
-	if rl.CheckCollisionCircleLine(b.Position, BallRadius, topLeft, topRight) {
+	resultVelocity := rl.Vector3{X: b.Velocity.X, Y: b.Velocity.Y, Z: b.Velocity.Z}
+	return resultVelocity
+	ballPosition := rl.Vector2{X: b.Position.X, Y: b.Position.Z}
+	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, topLeft, topRight) {
 		resultVelocity.Y = -resultVelocity.Y
 	}
-	if rl.CheckCollisionCircleLine(b.Position, BallRadius, topRight, bottomRight) {
+	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, topRight, bottomRight) {
 		resultVelocity.X = -resultVelocity.X
 	}
-	if rl.CheckCollisionCircleLine(b.Position, BallRadius, bottomLeft, topLeft) {
+	if rl.CheckCollisionCircleLine(ballPosition, BallRadius, bottomLeft, topLeft) {
 		resultVelocity.X = -resultVelocity.X
 	}
 	return resultVelocity

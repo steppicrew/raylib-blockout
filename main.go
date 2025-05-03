@@ -17,8 +17,8 @@ func main() {
 	rl.SetTargetFPS(60)
 
 	game := game.Game{
-		Width:  screenWidth,
-		Height: screenHeight,
+		Width:  80,
+		Height: 40,
 	}
 
 	game.Init()

@@ -1,86 +1,120 @@
 package game
 
 import (
-	"math"
+	"unsafe"
 
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const (
-	BallRadius      float32 = 10
+	BallRadius      float32 = 2
 	BallRadiusLight float32 = 5
-	BallSpeed               = 200
+	BallSpeed               = 20
 )
 
 type Ball struct {
-	Position   rl.Vector2
-	Velocity   rl.Vector2
+	Position   rl.Vector3
+	Velocity   rl.Vector3
 	game       *Game
-	min        rl.Vector2
-	max        rl.Vector2
+	model      rl.Model
+	min        rl.Vector3
+	max        rl.Vector3
 	color      rl.Color
 	colorLight rl.Color
 }
 
 func (b *Ball) Init(g *Game) {
 	b.game = g
+	b.model = rl.LoadModelFromMesh(rl.GenMeshSphere(BallRadius, 32, 32))
+	for i := range int(b.model.MaterialCount) {
+		b.model.GetMaterials()[i].Shader = g.shader
+	}
+
 	b.color = rl.Red
-	b.colorLight = rl.ColorBrightness(b.color, 0.3)
+	b.colorLight = rl.ColorBrightness(b.color, 0.5)
 	b.setVelocity(b.Velocity)
-	b.min = rl.Vector2{X: BallRadius, Y: BallRadius}
-	b.max = rl.Vector2{X: float32(b.game.Width) - BallRadius, Y: float32(b.game.Height) - BallRadius}
+	b.min = rl.Vector3{X: BallRadius, Y: GamePlaneHeight, Z: BallRadius}
+	b.max = rl.Vector3{X: float32(b.game.Width) - BallRadius, Y: GamePlaneHeight, Z: float32(b.game.Height) - BallRadius}
 }
 
-func (b *Ball) setVelocity(v rl.Vector2) {
-	b.Velocity = scale(normalize(v), BallSpeed)
+func (b *Ball) setVelocity(v rl.Vector3) {
+	b.Velocity = rl.Vector3Scale(rl.Vector3Normalize(v), BallSpeed)
+	// b.Velocity = rl.Vector3{X: 0, Y: 0, Z: 0}
 }
 
-func (b *Ball) Update(time float32) rl.Vector2 {
-	newPosition := add(b.Position, scale(b.Velocity, time))
-	b.Position = crop(newPosition, b.min, b.max)
+func (b *Ball) Update(time float32) rl.Vector3 {
+	//return b.Position
+	newPosition := rl.Vector3Add(b.Position, rl.Vector3Scale(b.Velocity, time))
+	b.Position = rl.Vector3Clamp(newPosition, b.min, b.max)
+	// b.Position = newPosition
 	return newPosition
 }
 
 func (b *Ball) DrawShadow() {
-	shadowCenter := b.game.ProjectCanvas(b.Position)
-	shadowRadius := b.game.ProjectCanvas(rl.Vector2{X: b.Position.X + BallRadius, Y: b.Position.Y}).X - shadowCenter.X
-	rl.DrawCircleV(shadowCenter, shadowRadius, b.game.shadowColorLight)
-	rl.DrawCircleV(shadowCenter, shadowRadius-shadowBorderThickness, b.game.shadowColor)
+	/*
+		shadowCenter := b.game.ProjectCanvas(b.Position)
+		shadowRadius := b.game.ProjectCanvas(rl.Vector2{X: b.Position.X + BallRadius, Y: b.Position.Y}).X - shadowCenter.X
+		rl.DrawCircleV(shadowCenter, shadowRadius, b.game.shadowColorLight)
+		rl.DrawCircleV(shadowCenter, shadowRadius-shadowBorderThickness, b.game.shadowColor)
+	*/
+}
+
+func (b *Ball) DrawNormals() {
+	mesh := b.model.GetMeshes()[0]
+
+	// Access mesh data
+	vertices := (*[1 << 30]float32)(unsafe.Pointer(mesh.Vertices))[:mesh.VertexCount*3]
+	normals := (*[1 << 30]float32)(unsafe.Pointer(mesh.Normals))[:mesh.VertexCount*3]
+
+	for i := 0; i < int(mesh.VertexCount); i++ {
+		// Vertex position
+		vx := vertices[i*3+0]
+		vy := vertices[i*3+1]
+		vz := vertices[i*3+2]
+		pos := rl.Vector3{X: vx, Y: vy, Z: vz}
+
+		// Normal direction
+		nx := normals[i*3+0]
+		ny := normals[i*3+1]
+		nz := normals[i*3+2]
+		normal := rl.Vector3{X: nx, Y: ny, Z: nz}
+
+		// Transform position by model matrix
+		worldPos := rl.Vector3Add(b.Position, rl.Vector3Scale(pos, 1.0)) // Apply model position
+
+		// End of normal (just visualize scaled normal direction)
+		normalEnd := rl.Vector3Add(worldPos, rl.Vector3Scale(normal, 1)) // scale for visibility
+
+		// Draw line
+		rl.DrawLine3D(worldPos, normalEnd, rl.Blue)
+	}
 }
 
 func (b *Ball) Draw() {
-	camera := rl.Camera3D{}
-	camera.Position = rl.Vector3{X: float32(b.game.Width) / 2, Y: float32(b.game.Height), Z: 100}
-	camera.Target = rl.Vector3{X: float32(b.game.Width) / 2, Y: float32(b.game.Height) / 2, Z: CanvasZ}
-	camera.Up = rl.NewVector3(0.0, 1.0, 0.0)
-	camera.Fovy = 45.0
-	camera.Projection = rl.CameraPerspective
-	rl.BeginMode3D(camera)
-	rl.DrawSphere(rl.Vector3{X: b.Position.X, Y: b.Position.Y, Z: CanvasZ}, BallRadius, b.color)
-	rl.EndMode3D()
+	shader := b.game.shader
+	modelLoc := rl.GetShaderLocation(shader, "model")
+	viewPosLoc := rl.GetShaderLocation(shader, "viewPos")
+	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
+	lightColorLoc := rl.GetShaderLocation(shader, "lightColor")
+	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 
-	// rl.DrawCircleV(b.Position, BallRadius, b.color)
-	// rl.DrawCircleV(rl.Vector2{X: b.Position.X - 1, Y: b.Position.Y - 2}, BallRadiusLight, b.colorLight)
-	lightCenter := b.game.ProjectZ(b.Position, CanvasZ+BallRadius)
-	distance := rl.Vector2{X: b.Position.X - lightCenter.X, Y: b.Position.Y - lightCenter.Y}
-	distanceLength := float32(math.Sqrt(float64(distance.X*distance.X + distance.Y*distance.Y)))
-	var lightOffset rl.Vector2
-	if distanceLength == 0 {
-		lightOffset = rl.Vector2{X: 0, Y: 0}
-	} else {
-		realDist := BallRadius - (BallRadius / (distanceLength + 1))
-		lightOffset = rl.Vector2{
-			X: distance.X / distanceLength * realDist,
-			Y: distance.Y / distanceLength * realDist,
-		}
-	}
-	rl.DrawEllipse(
-		int32(b.Position.X-lightOffset.X),
-		int32(b.Position.Y-lightOffset.Y),
-		(BallRadius-float32(math.Abs(float64(lightOffset.X))))/BallRadius*BallRadiusLight,
-		(BallRadius-float32(math.Abs(float64(lightOffset.Y))))/BallRadius*BallRadiusLight,
-		b.colorLight,
-	)
+	rl.BeginShaderMode(shader)
+
+	// Update uniforms
+	rl.SetShaderValue(shader, viewPosLoc, []float32{b.game.camera.Position.X, b.game.camera.Position.Y, b.game.camera.Position.Z}, rl.ShaderUniformVec3)
+	rl.SetShaderValue(shader, lightPosLoc, []float32{b.game.lightPosition.X, b.game.lightPosition.Y, b.game.lightPosition.Z}, rl.ShaderUniformVec3)
+
+	rl.SetShaderValue(shader, lightColorLoc, []float32{1, 1, 1}, rl.ShaderUniformVec3)
+	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(b.color.R) / 255, float32(b.color.G) / 255, float32(b.color.B) / 255}, rl.ShaderUniformVec3)
+
+	transform := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
+	// Or build full transform (translation + rotation + scale)
+
+	rl.SetShaderValueMatrix(shader, modelLoc, transform)
+
+	rl.DrawModelEx(b.model, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+
+	rl.EndShaderMode()
 }
 
 /*
