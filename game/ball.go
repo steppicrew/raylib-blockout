@@ -1,13 +1,11 @@
 package game
 
 import (
-	"unsafe"
-
 	rl "github.com/gen2brain/raylib-go/raylib"
 )
 
 const (
-	BallRadius      float32 = 2
+	BallRadius      float32 = 1.5
 	BallRadiusLight float32 = 5
 	BallSpeed               = 20
 )
@@ -54,53 +52,24 @@ func (b *Ball) DrawShadow() {
 	*/
 }
 
-func (b *Ball) DrawNormals() {
-	mesh := b.game.ballModel.GetMeshes()[0]
-
-	// Access mesh data
-	vertices := (*[1 << 30]float32)(unsafe.Pointer(mesh.Vertices))[:mesh.VertexCount*3]
-	normals := (*[1 << 30]float32)(unsafe.Pointer(mesh.Normals))[:mesh.VertexCount*3]
-
-	for i := 0; i < int(mesh.VertexCount); i++ {
-		// Vertex position
-		vx := vertices[i*3+0]
-		vy := vertices[i*3+1]
-		vz := vertices[i*3+2]
-		pos := rl.Vector3{X: vx, Y: vy, Z: vz}
-
-		// Normal direction
-		nx := normals[i*3+0]
-		ny := normals[i*3+1]
-		nz := normals[i*3+2]
-		normal := rl.Vector3{X: nx, Y: ny, Z: nz}
-
-		// Transform position by model matrix
-		worldPos := rl.Vector3Add(b.Position, rl.Vector3Scale(pos, 1.0)) // Apply model position
-
-		// End of normal (just visualize scaled normal direction)
-		normalEnd := rl.Vector3Add(worldPos, rl.Vector3Scale(normal, 1)) // scale for visibility
-
-		// Draw line
-		rl.DrawLine3D(worldPos, normalEnd, rl.Blue)
-	}
-}
-
 func (b *Ball) Draw() {
 	shader := b.game.shader
 	modelLoc := rl.GetShaderLocation(shader, "model")
-	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
-	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(b.color.R) / 255, float32(b.color.G) / 255, float32(b.color.B) / 255}, rl.ShaderUniformVec3)
+	SetObjectColor(shader, b.color)
 
-	transform := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
+	transformationMatrix := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
 	// Or build full transform (translation + rotation + scale)
 
-	rl.SetShaderValueMatrix(shader, modelLoc, transform)
+	rl.SetShaderValueMatrix(shader, modelLoc, transformationMatrix)
 
-	rl.DrawModelEx(b.game.ballModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+	// rl.DrawModelEx(b.game.ballModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+	rl.DrawModel(b.game.ballModel, rl.Vector3Zero(), 1, b.color)
+
+	// DrawNormals(b.game.ballModel.GetMeshes()[0], b.Position)
 
 	rl.EndShaderMode()
 }

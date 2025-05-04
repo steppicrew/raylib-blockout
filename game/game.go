@@ -41,12 +41,14 @@ func (g *Game) InitiModels() {
 	for i := range int(g.brickModel.MaterialCount) {
 		g.brickModel.GetMaterials()[i].Shader = shader
 	}
+	rl.UploadMesh(&g.brickModel.GetMeshes()[0], true)
+
 }
 
 func (g *Game) Init() {
 	g.InitiModels()
 
-	g.lightPosition = rl.Vector3{X: float32(g.Width) / 2, Y: LightHeight, Z: float32(g.Height)}
+	g.lightPosition = rl.Vector3{X: float32(g.Width) / 2, Y: LightHeight, Z: float32(g.Height) + 10}
 	// g.lightPosition = rl.Vector3{X: 0, Y: LightHeight, Z: float32(g.Height) / 2}
 	g.camera = rl.Camera3D{}
 	g.camera.Position = rl.Vector3{X: float32(g.Width) / 2, Y: CameraHeight, Z: float32(g.Height) / 2}
@@ -144,9 +146,6 @@ func (g *Game) Update(time float32) {
 	g.ball.setVelocity(g.paddle.checkCollision(g.ball))
 
 	for _, brick := range g.bricks {
-		if brick.Lives <= 0 {
-			continue
-		}
 		g.ball.setVelocity(brick.checkCollision(g.ball))
 
 		brick.Update(time)

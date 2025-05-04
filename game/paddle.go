@@ -3,10 +3,10 @@ package game
 import rl "github.com/gen2brain/raylib-go/raylib"
 
 const (
-	PaddleWidth                     = 8
-	PaddleHeight                    = 3
-	PaddleDepth                     = 3
-	PaddleSpeed                     = 20
+	PaddleWidth             float32 = 8
+	PaddleHeight            float32 = 3
+	PaddleDepth             float32 = 3
+	PaddleSpeed             float32 = 20
 	PaddleRoundness         float32 = .4
 	PaddleRoundnessSegments int32   = 15
 )
@@ -38,10 +38,10 @@ func (p *Paddle) updateX(x float32) {
 func (p *Paddle) Update(time float32) {
 	if !rl.IsKeyDown(rl.KeyLeftShift) && !rl.IsKeyDown(rl.KeyRightShift) && !rl.IsKeyDown(rl.KeyLeftControl) && !rl.IsKeyDown(rl.KeyRightControl) && !rl.IsKeyDown(rl.KeyLeftAlt) && !rl.IsKeyDown(rl.KeyRightAlt) {
 		if rl.IsKeyDown(rl.KeyLeft) {
-			p.updateX(MinFloat(p.Position.X+PaddleSpeed*time, float32(p.game.Width)-PaddleWidth))
+			p.updateX(MinFloat(p.Position.X+PaddleSpeed*time, float32(p.game.Width)-PaddleWidth/2))
 		}
 		if rl.IsKeyDown(rl.KeyRight) {
-			p.updateX(MaxFloat(p.Position.X-PaddleSpeed*time, 0))
+			p.updateX(MaxFloat(p.Position.X-PaddleSpeed*time, PaddleWidth/2))
 		}
 	}
 }
@@ -53,11 +53,14 @@ func (p *Paddle) checkCollision(b Ball) rl.Vector3 {
 	resultVelocity := rl.Vector3{X: b.Velocity.X, Y: b.Velocity.Y, Z: b.Velocity.Z}
 
 	if collides {
-		if closest.X == p.bbox.Min.X || closest.X == p.bbox.Max.X {
+		if closest.X == p.bbox.Max.X {
 			resultVelocity.X = -resultVelocity.X
 		}
-		if closest.Z == p.bbox.Min.Z || closest.Z == p.bbox.Max.Z {
-			resultVelocity.Z = -resultVelocity.Z
+		if closest.Z == p.bbox.Min.Z {
+			resultVelocity.Z = -AbsFloat(resultVelocity.Z)
+		}
+		if closest.Z == p.bbox.Max.Z {
+			resultVelocity.Z = AbsFloat(resultVelocity.Z)
 		}
 	}
 	return resultVelocity
@@ -69,19 +72,22 @@ func (p *Paddle) DrawShadow() {
 func (p *Paddle) Draw() {
 	shader := p.game.shader
 	modelLoc := rl.GetShaderLocation(shader, "model")
-	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
-	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(p.color.R) / 255, float32(p.color.G) / 255, float32(p.color.B) / 255}, rl.ShaderUniformVec3)
+	SetObjectColor(shader, p.color)
 
-	transform := rl.MatrixTranslate(p.Position.X, p.Position.Y, p.Position.Z)
+	scaleMatrix := rl.MatrixScale(p.scale.X, p.scale.Y, p.scale.Z)
+	rotationMatrix := rl.MatrixRotateY(0)
+	translationMatrix := rl.MatrixTranslate(p.Position.X, p.Position.Y, p.Position.Z)
+	transformationMatrix := rl.MatrixMultiply(rl.MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
 	// Or build full transform (translation + rotation + scale)
 
-	rl.SetShaderValueMatrix(shader, modelLoc, transform)
+	rl.SetShaderValueMatrix(shader, modelLoc, transformationMatrix)
 
-	rl.DrawModelEx(p.game.brickModel, p.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, p.scale, p.color)
+	// rl.DrawModelEx(p.game.brickModel, p.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, p.scale, p.color)
+	rl.DrawModel(p.game.brickModel, rl.Vector3Zero(), 1, p.color)
 
 	rl.EndShaderMode()
 }

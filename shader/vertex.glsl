@@ -13,10 +13,10 @@ out vec3 fragNormal;
 void main()
 {
     fragPos    = vec3(model * vec4(vertexPosition, 1.0));
-    fragNormal = (matNormal * vec4(vertexNormal, 0.0)).xyz;
 
     mat3 normalMat = mat3(matNormal);
+    // mat3 normalMat = transpose(inverse(mat3(model)));
     fragNormal = normalize(normalMat * vertexNormal);
 
-    gl_Position = mvp * vec4(vertexPosition, 1.0);
+    gl_Position = mvp * vec4(fragPos, 1.0);
 }
