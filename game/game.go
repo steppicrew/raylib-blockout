@@ -174,8 +174,6 @@ func (g *Game) Draw() {
 	rl.SetShaderValue(shader, lightPosLoc, []float32{g.lightPosition.X, g.lightPosition.Y, g.lightPosition.Z}, rl.ShaderUniformVec3)
 	rl.SetShaderValue(shader, lightColorLoc, []float32{1, 1, 1}, rl.ShaderUniformVec3)
 
-	// rl.DrawSphere(g.lightPosition, 1, rl.Red)
-
 	g.ball.Draw(shader, modelLoc)
 	g.paddle.Draw(shader, modelLoc)
 	for _, brick := range g.bricks {
@@ -184,6 +182,8 @@ func (g *Game) Draw() {
 
 	// Draw a grid to visualize the 3D space (optional)
 	// rl.DrawGrid(100, 1.0)
+
+	rl.DrawSphere(g.lightPosition, 1, rl.Fade(rl.Red, .3))
 
 	rl.EndMode3D() // Exit 3D mode
 }
@@ -201,8 +201,6 @@ func (g *Game) DrawShadow() {
 	// Update uniforms
 	rl.SetShaderValue(shader, lightPosLoc, []float32{g.lightPosition.X, g.lightPosition.Y, g.lightPosition.Z}, rl.ShaderUniformVec3)
 	SetObjectColor(shader, g.shadowColor)
-
-	rl.DrawSphere(g.lightPosition, 1, rl.Red)
 
 	g.ball.DrawShadow(shader, modelLoc)
 	g.paddle.DrawShadow(shader, modelLoc)
