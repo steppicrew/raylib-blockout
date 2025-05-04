@@ -5,7 +5,7 @@ import rl "github.com/gen2brain/raylib-go/raylib"
 const (
 	BrickRows                     = 5
 	HeightOffset          float32 = .8
-	LightHeight           float32 = 10
+	LightHeight           float32 = 30
 	GamePlaneHeight       float32 = 2
 	CameraHeight          float32 = 80
 	shadowBorderThickness float32 = 2
@@ -13,43 +13,60 @@ const (
 )
 
 type Game struct {
-	Width            int32
-	Height           int32
-	ball             Ball
-	paddle           Paddle
-	bricks           []*Brick
-	lightPosition    rl.Vector3
-	camera           rl.Camera3D
-	shadowColor      rl.Color
-	shadowColorLight rl.Color
+	Width         int32
+	Height        int32
+	ball          Ball
+	paddle        Paddle
+	bricks        []*Brick
+	lightPosition rl.Vector3
+	camera        rl.Camera3D
+	shadowColor   rl.Color
 
-	ballModel  rl.Model
-	brickModel rl.Model
-	shader     rl.Shader
+	ballModel        rl.Model
+	ballShadowModel  rl.Model
+	brickModel       rl.Model
+	brickShadowModel rl.Model
+	defaultShader    rl.Shader
+	shadowShader     rl.Shader
 }
 
 func (g *Game) InitiModels() {
-	shader := rl.LoadShader("shader/vertex.glsl", "shader/fragment.glsl")
-	g.shader = shader
+	defaultShader := rl.LoadShader("shader/defaultVertex.glsl", "shader/defaultFragment.glsl")
+	g.defaultShader = defaultShader
 
 	g.ballModel = rl.LoadModelFromMesh(rl.GenMeshSphere(BallRadius, 32, 32))
 	for i := range int(g.ballModel.MaterialCount) {
-		g.ballModel.GetMaterials()[i].Shader = shader
+		g.ballModel.GetMaterials()[i].Shader = defaultShader
 	}
 
 	g.brickModel = rl.LoadModel("objects/rounded_cube.glb")
 	for i := range int(g.brickModel.MaterialCount) {
-		g.brickModel.GetMaterials()[i].Shader = shader
+		g.brickModel.GetMaterials()[i].Shader = defaultShader
 	}
-	rl.UploadMesh(&g.brickModel.GetMeshes()[0], true)
 
+	shadowShader := rl.LoadShader("shader/shadowVertex.glsl", "shader/shadowFragment.glsl")
+	g.shadowShader = shadowShader
+
+	g.ballShadowModel = rl.LoadModelFromMesh(rl.GenMeshSphere(BallRadius, 32, 32))
+	for i := range int(g.ballShadowModel.MaterialCount) {
+		g.ballShadowModel.GetMaterials()[i].Shader = shadowShader
+	}
+
+	g.brickShadowModel = rl.LoadModel("objects/rounded_cube.glb")
+	for i := range int(g.brickShadowModel.MaterialCount) {
+		g.brickShadowModel.GetMaterials()[i].Shader = shadowShader
+	}
 }
 
 func (g *Game) Init() {
 	g.InitiModels()
 
-	g.lightPosition = rl.Vector3{X: float32(g.Width) / 2, Y: LightHeight, Z: float32(g.Height) + 10}
+	g.lightPosition = rl.Vector3{X: float32(g.Width) / 2, Y: LightHeight, Z: float32(g.Height) + 2}
 	// g.lightPosition = rl.Vector3{X: 0, Y: LightHeight, Z: float32(g.Height) / 2}
+
+	// g.shadowMatrix = getShadowMatrix(g.lightPosition)
+	g.shadowColor = rl.LightGray
+
 	g.camera = rl.Camera3D{}
 	g.camera.Position = rl.Vector3{X: float32(g.Width) / 2, Y: CameraHeight, Z: float32(g.Height) / 2}
 	g.camera.Target = rl.Vector3{X: float32(g.Width) / 2, Y: 0, Z: float32(g.Height) / 2}
@@ -64,9 +81,9 @@ func (g *Game) Init() {
 
 	g.ball = Ball{
 		Position: rl.Vector3{X: float32(g.Width) / 2, Y: GamePlaneHeight, Z: float32(g.Height) * 0.3},
-		// Position: rl.Vector3{X: X, Y: 0, Z: 0},
+		// Position: rl.Vector3{X: 0, Y: 0, Z: 0},
 		Velocity: rl.Vector3{X: 1, Y: 0, Z: 1},
-		// Velocity: rl.Vector3{X: 0, Y: 0, Z: 1},
+		// Velocity: rl.Vector3{X: 0, Y: 0, Z: 0},
 	}
 	g.paddle = Paddle{Position: rl.Vector3{X: float32(g.Width) / 2, Y: GamePlaneHeight, Z: PaddleHeight / 2}}
 	g.bricks = []*Brick{}
@@ -97,18 +114,6 @@ func (g *Game) Init() {
 		g.bricks[0] = &brick
 	}
 
-}
-
-func (g *Game) ProjectCanvas(pos rl.Vector2) rl.Vector2 {
-	return g.ProjectZ(pos, 0)
-}
-
-func (g *Game) ProjectZ(pos rl.Vector2, z float32) rl.Vector2 {
-	Lx, Ly, Lz := g.lightPosition.X, g.lightPosition.Y, g.lightPosition.Z
-	Px, Py, Pz := pos.X, pos.Y, GamePlaneHeight
-	deltaZ := Lz - Pz
-	t := (Lz - z) / deltaZ
-	return rl.NewVector2(Lx+t*(Px-Lx), Ly+t*(Py-Ly))
 }
 
 func (g *Game) updateCamera(time float32) {
@@ -152,26 +157,17 @@ func (g *Game) Update(time float32) {
 	}
 }
 
-func (g *Game) DrawShadow() {
-	/*
-		g.ball.DrawShadow()
-		g.paddle.DrawShadow()
-		for _, brick := range g.bricks {
-			brick.DrawShadow()
-		}
-	*/
-}
-
 func (g *Game) Draw() {
 	// rl.UpdateCamera(&g.camera, rl.CameraOrbital)
 	// g.camera.Target = g.ball.Position
 
 	rl.BeginMode3D(g.camera) // Enter 3D mode
 
-	shader := g.shader
+	shader := g.defaultShader
 	viewPosLoc := rl.GetShaderLocation(shader, "viewPos")
 	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
 	lightColorLoc := rl.GetShaderLocation(shader, "lightColor")
+	modelLoc := rl.GetShaderLocation(shader, "model")
 
 	// Update uniforms
 	rl.SetShaderValue(shader, viewPosLoc, []float32{g.camera.Position.X, g.camera.Position.Y, g.camera.Position.Z}, rl.ShaderUniformVec3)
@@ -180,14 +176,39 @@ func (g *Game) Draw() {
 
 	// rl.DrawSphere(g.lightPosition, 1, rl.Red)
 
-	g.ball.Draw()
-	g.paddle.Draw()
+	g.ball.Draw(shader, modelLoc)
+	g.paddle.Draw(shader, modelLoc)
 	for _, brick := range g.bricks {
-		brick.Draw()
+		brick.Draw(shader, modelLoc)
 	}
 
 	// Draw a grid to visualize the 3D space (optional)
-	rl.DrawGrid(100, 1.0)
+	// rl.DrawGrid(100, 1.0)
+
+	rl.EndMode3D() // Exit 3D mode
+}
+
+func (g *Game) DrawShadow() {
+	// rl.UpdateCamera(&g.camera, rl.CameraOrbital)
+	// g.camera.Target = g.ball.Position
+
+	rl.BeginMode3D(g.camera) // Enter 3D mode
+
+	shader := g.shadowShader
+	lightPosLoc := rl.GetShaderLocation(shader, "lightPos")
+	modelLoc := rl.GetShaderLocation(shader, "model")
+
+	// Update uniforms
+	rl.SetShaderValue(shader, lightPosLoc, []float32{g.lightPosition.X, g.lightPosition.Y, g.lightPosition.Z}, rl.ShaderUniformVec3)
+	SetObjectColor(shader, g.shadowColor)
+
+	rl.DrawSphere(g.lightPosition, 1, rl.Red)
+
+	g.ball.DrawShadow(shader, modelLoc)
+	g.paddle.DrawShadow(shader, modelLoc)
+	for _, brick := range g.bricks {
+		brick.DrawShadow(shader, modelLoc)
+	}
 
 	rl.EndMode3D() // Exit 3D mode
 }

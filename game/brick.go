@@ -42,6 +42,7 @@ type Brick struct {
 
 	wiggleTime      float32
 	wiggleDirection float32
+	transformation  rl.Matrix
 }
 
 func (b *Brick) Init(g *Game) {
@@ -73,6 +74,11 @@ func (b *Brick) Update(time float32) {
 	} else {
 		b.reallyDead = b.Lives <= 0
 	}
+
+	scaleMatrix := rl.MatrixScale(b.scale.X, b.scale.Y, b.scale.Z)
+	rotationMatrix := rl.MatrixRotateY(b.angle)
+	translationMatrix := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
+	b.transformation = rl.MatrixMultiply(rl.MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
 }
 
 func (b *Brick) checkCollision(ball Ball) rl.Vector3 {
@@ -112,51 +118,43 @@ func (b *Brick) checkCollision(ball Ball) rl.Vector3 {
 	return resultVelocity
 }
 
-func (b *Brick) DrawShadow() {
-	/*
-		if b.Lives > 0 {
-			x := b.Position.X + padding/2
-			y := b.Position.Y + padding/2
+func (b *Brick) DrawShadow(shader rl.Shader, modelLoc int32) {
+	if b.reallyDead {
+		return
+	}
+	shadowColor := b.game.shadowColor
+	if b.Lives <= 0 {
+		shadowColor = rl.Fade(shadowColor, float32(ease(float64(b.wiggleTime/MaxWiggleTime))))
+	}
 
-			width := BrickWidth - padding
-			height := BrickHeight - padding
+	rl.BeginShaderMode(shader)
 
-			var rectangle rl.Rectangle
+	rl.SetShaderValueMatrix(shader, modelLoc, b.transformation)
+	SetObjectColor(shader, shadowColor)
 
-			shadowTopLeft := b.game.ProjectCanvas(rl.NewVector2(x, y))
-			shadowBottomRight := b.game.ProjectCanvas(rl.NewVector2(x+width, y+height))
-			rectangle = rl.Rectangle{X: shadowTopLeft.X, Y: shadowTopLeft.Y, Width: shadowBottomRight.X - shadowTopLeft.X, Height: shadowBottomRight.Y - shadowTopLeft.Y}
-			rl.DrawRectangleRounded(rectangle, roundness, segments, b.game.shadowColorLight)
-			rectangle = rl.Rectangle{X: shadowTopLeft.X + shadowBorderThickness, Y: shadowTopLeft.Y + shadowBorderThickness, Width: shadowBottomRight.X - shadowTopLeft.X - 2*shadowBorderThickness, Height: shadowBottomRight.Y - shadowTopLeft.Y - 2*shadowBorderThickness}
-			rl.DrawRectangleRounded(rectangle, roundness, segments, b.game.shadowColor)
-		}
-	*/
+	// rl.DrawModelEx(b.game.ballModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+	rl.DrawModel(b.game.brickShadowModel, rl.Vector3Zero(), 1, b.game.shadowColor)
+
+	rl.EndShaderMode()
 }
 
-func (b *Brick) Draw() {
+func (b *Brick) Draw(shader rl.Shader, modelLoc int32) {
 	if b.reallyDead {
 		return
 	}
 	baseColor := BrickColors[MaxInt(b.Lives-1, 0)]
 	if b.Lives <= 0 {
-		baseColor.A = uint8(ease(float64(b.wiggleTime/MaxWiggleTime)) * 255)
+		baseColor = rl.Fade(baseColor, float32(ease(float64(b.wiggleTime/MaxWiggleTime))))
 	}
-
-	shader := b.game.shader
-	modelLoc := rl.GetShaderLocation(shader, "model")
 
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
 	SetObjectColor(shader, baseColor)
 
-	scaleMatrix := rl.MatrixScale(b.scale.X, b.scale.Y, b.scale.Z)
-	rotationMatrix := rl.MatrixRotateY(b.angle)
-	translationMatrix := rl.MatrixTranslate(b.Position.X, b.Position.Y, b.Position.Z)
-	transformationMatrix := rl.MatrixMultiply(rl.MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
 	// Or build full transform (translation + rotation + scale)
 
-	rl.SetShaderValueMatrix(shader, modelLoc, transformationMatrix)
+	rl.SetShaderValueMatrix(shader, modelLoc, b.transformation)
 
 	// b.game.brickModel.Transform = rl.MatrixMultiply(transformation, rl.MatrixScale(b.scale.X, b.scale.Y, b.scale.Z))
 

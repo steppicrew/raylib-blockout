@@ -1,5 +1,7 @@
 #version 330
 
+precision highp float;
+
 in  vec3 vertexPosition;
 in  vec3 vertexNormal;
 

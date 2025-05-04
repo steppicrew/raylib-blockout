@@ -18,6 +18,8 @@ type Paddle struct {
 	scale    rl.Vector3
 	baseBbox rl.BoundingBox
 	bbox     rl.BoundingBox
+
+	transformation rl.Matrix
 }
 
 func (p *Paddle) Init(g *Game) {
@@ -25,6 +27,7 @@ func (p *Paddle) Init(g *Game) {
 	p.color = rl.Maroon
 
 	p.scale, p.baseBbox = GetScaleBoundingBox(g.brickModel, rl.NewVector3(0, 0, 0), rl.Vector3{X: PaddleWidth, Y: PaddleHeight, Z: PaddleDepth})
+	p.updateX(float32(g.Width) / 2)
 }
 
 func (p *Paddle) updateX(x float32) {
@@ -33,6 +36,11 @@ func (p *Paddle) updateX(x float32) {
 		Min: rl.Vector3Add(p.Position, p.baseBbox.Min),
 		Max: rl.Vector3Add(p.Position, p.baseBbox.Max),
 	}
+
+	scaleMatrix := rl.MatrixScale(p.scale.X, p.scale.Y, p.scale.Z)
+	rotationMatrix := rl.MatrixRotateY(0)
+	translationMatrix := rl.MatrixTranslate(p.Position.X, p.Position.Y, p.Position.Z)
+	p.transformation = rl.MatrixMultiply(rl.MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
 }
 
 func (p *Paddle) Update(time float32) {
@@ -66,25 +74,24 @@ func (p *Paddle) checkCollision(b Ball) rl.Vector3 {
 	return resultVelocity
 }
 
-func (p *Paddle) DrawShadow() {
+func (p *Paddle) DrawShadow(shader rl.Shader, modelLoc int32) {
+	rl.BeginShaderMode(shader)
+
+	rl.SetShaderValueMatrix(shader, modelLoc, p.transformation)
+
+	// rl.DrawModelEx(b.game.ballModel, b.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, rl.Vector3{X: 1, Y: 1, Z: 1}, b.color)
+	rl.DrawModel(p.game.brickShadowModel, rl.Vector3Zero(), 1, p.game.shadowColor)
+
+	rl.EndShaderMode()
 }
 
-func (p *Paddle) Draw() {
-	shader := p.game.shader
-	modelLoc := rl.GetShaderLocation(shader, "model")
-
+func (p *Paddle) Draw(shader rl.Shader, modelLoc int32) {
 	rl.BeginShaderMode(shader)
 
 	// Update uniforms
 	SetObjectColor(shader, p.color)
 
-	scaleMatrix := rl.MatrixScale(p.scale.X, p.scale.Y, p.scale.Z)
-	rotationMatrix := rl.MatrixRotateY(0)
-	translationMatrix := rl.MatrixTranslate(p.Position.X, p.Position.Y, p.Position.Z)
-	transformationMatrix := rl.MatrixMultiply(rl.MatrixMultiply(scaleMatrix, rotationMatrix), translationMatrix)
-	// Or build full transform (translation + rotation + scale)
-
-	rl.SetShaderValueMatrix(shader, modelLoc, transformationMatrix)
+	rl.SetShaderValueMatrix(shader, modelLoc, p.transformation)
 
 	// rl.DrawModelEx(p.game.brickModel, p.Position, rl.Vector3{X: 0, Y: 1, Z: 0}, 0, p.scale, p.color)
 	rl.DrawModel(p.game.brickModel, rl.Vector3Zero(), 1, p.color)
