@@ -106,3 +106,8 @@ func SetObjectColor(shader rl.Shader, color rl.Color) {
 	objectColorLoc := rl.GetShaderLocation(shader, "objectColor")
 	rl.SetShaderValue(shader, objectColorLoc, []float32{float32(color.R) / 255, float32(color.G) / 255, float32(color.B) / 255, float32(color.A) / 255}, rl.ShaderUniformVec4)
 }
+
+func FixCameraUp(camera *rl.Camera3D, querVector rl.Vector3) {
+	camDirection := rl.Vector3Normalize(rl.Vector3Subtract(camera.Position, camera.Target))
+	camera.Up = rl.Vector3Negate(rl.Vector3Normalize(rl.Vector3CrossProduct(camDirection, querVector)))
+}

@@ -120,17 +120,27 @@ func (g *Game) updateCamera(time float32) {
 	if rl.IsKeyDown(rl.KeyLeftControl) || rl.IsKeyDown(rl.KeyRightControl) {
 		pos := g.camera.Position
 		target := g.camera.Target
+		upVector := rl.Vector3Normalize(g.camera.Up)
+		viewVector := rl.Vector3Normalize(rl.Vector3Subtract(pos, target))
+		querVector := rl.Vector3CrossProduct(viewVector, upVector)
+
 		if rl.IsKeyDown(rl.KeyUp) {
-			g.camera.Position = Rotate(pos, target, rl.Vector3{X: 1, Y: 0, Z: 0}, time*CameraSpeed)
+			g.camera.Position = Rotate(pos, target, querVector, time*CameraSpeed)
+			FixCameraUp(&g.camera, querVector)
+			//camDirection := rl.Vector3Normalize(rl.Vector3Subtract(g.camera.Position, target))
+			//g.camera.Up = rl.Vector3Negate(rl.Vector3Normalize(rl.Vector3CrossProduct(camDirection, querVector)))
 		}
 		if rl.IsKeyDown(rl.KeyDown) {
-			g.camera.Position = Rotate(pos, target, rl.Vector3{X: 1, Y: 0, Z: 0}, -time*CameraSpeed)
+			g.camera.Position = Rotate(pos, target, querVector, -time*CameraSpeed)
+			FixCameraUp(&g.camera, querVector)
+			//camDirection := rl.Vector3Normalize(rl.Vector3Subtract(g.camera.Position, target))
+			//g.camera.Up = rl.Vector3Negate(rl.Vector3Normalize(rl.Vector3CrossProduct(camDirection, querVector)))
 		}
 		if rl.IsKeyDown(rl.KeyRight) {
-			g.camera.Position = Rotate(pos, target, rl.Vector3{X: 0, Y: 0, Z: 1}, time*CameraSpeed)
+			g.camera.Position = Rotate(pos, target, upVector, time*CameraSpeed)
 		}
 		if rl.IsKeyDown(rl.KeyLeft) {
-			g.camera.Position = Rotate(pos, target, rl.Vector3{X: 0, Y: 0, Z: 1}, -time*CameraSpeed)
+			g.camera.Position = Rotate(pos, target, upVector, -time*CameraSpeed)
 		}
 	}
 
